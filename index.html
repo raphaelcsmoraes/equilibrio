@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equilíbrio — daily balance puzzle</title>
+<meta name="description" content="Equilíbrio é um quebra-cabeça diário de equilíbrio: preencha a grade com círculo, triângulo e quadrado. Cada linha E cada coluna deve ter 2 de cada.">
+<meta name="theme-color" content="#2D6A4F">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232D6A4F'/%3E%3Ccircle cx='8' cy='8' r='3' fill='white'/%3E%3Cpolygon points='16 5 20 11 12 11' fill='white'/%3E%3Crect x='5' y='14' width='6' height='6' rx='1' fill='white'/%3E%3Crect x='13' y='14' width='6' height='6' rx='1' fill='white'/%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#EEF2EE;
+    --card-bg:#FFFFFF;
+    --border:#D8E4D8;
+    --border-strong:#B8CCB8;
+    --text-primary:#1A2E1A;
+    --text-secondary:#5A7A5A;
+    --bg-secondary:#F0F5F0;
+    --accent:#2D6A4F;
+    --circle:#1A7F5A;
+    --triangle:#C0392B;
+    --square:#6C3483;
+    --danger:#B23A33;
+    --success:#2D6A4F;
+    --warning:#A04000;
+    --radius-md:8px;
+    --radius-lg:14px;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:16px;}
+  main{width:100%;max-width:400px;display:flex;flex-direction:column;gap:12px;}
+  .card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;width:100%;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .header-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+  .header-text{flex:1;}
+  .game-name{font-size:16px;font-weight:700;color:var(--text-primary);}
+  .meta-line{font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;}
+  .icon-btn{width:32px;height:32px;border:1px solid var(--border-strong);background:#fff;border-radius:var(--radius-md);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;padding:0;}
+  .icon-btn:hover{background:var(--bg-secondary);}
+  .rules-panel{display:none;font-size:13px;color:var(--text-secondary);background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px 16px;margin:0 0 14px;line-height:1.6;}
+  .rules-panel h3{font-size:14px;color:var(--text-primary);margin:14px 0 6px;font-weight:600;}
+  .rules-panel h3:first-child{margin-top:0;}
+  .rules-panel ul,.rules-panel ol{margin:4px 0;padding-left:16px;}
+  .rules-panel li{margin:3px 0;}
+  .rules-panel strong{color:var(--text-primary);}
+  .rule-icon{display:inline-flex;vertical-align:-3px;margin:0 1px;}
+  .divider{border-top:1px solid var(--border);padding-top:12px;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-secondary);margin-bottom:12px;align-items:center;}
+  .legend span{white-space:nowrap;display:inline-flex;align-items:center;gap:3px;}
+
+  /* Board: 7 colunas (6 células + 1 indicador) e 7 linhas (6 células + 1 indicador) */
+  #board-wrap{display:grid;grid-template-columns:repeat(6,1fr) 22px;grid-template-rows:repeat(6,1fr) 22px;gap:4px;margin:0 auto 14px;width:100%;max-width:295px;}
+  .game-cell{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:background-color .15s;min-height:36px;}
+  .game-cell:hover{background:var(--bg-secondary);}
+  .game-cell.fixed{background:var(--bg-secondary);cursor:default;}
+  .game-cell.error-row{background:rgba(178,58,51,0.09);}
+  .game-cell:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  /* Indicadores de linha e coluna */
+  .row-ind,.col-ind{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-secondary);border-radius:4px;transition:all .2s;}
+  .row-ind{padding:0 2px;}
+  .row-ind.ok,.col-ind.ok{color:var(--success);font-size:13px;}
+  .col-ind{align-self:start;}
+  .corner{/* empty corner cell */}
+
+  .controls{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  button{font-family:inherit;font-size:13px;border:1px solid var(--border-strong);background:#fff;color:var(--text-primary);border-radius:var(--radius-md);padding:7px 12px;cursor:pointer;transition:background-color .15s;display:inline-flex;align-items:center;gap:5px;}
+  button:hover{background:var(--bg-secondary);}
+  button:active{transform:scale(0.98);}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+  button:disabled:hover{background:#fff;}
+  button:disabled:active{transform:none;}
+  #status{font-size:13px;color:var(--text-secondary);min-height:18px;}
+
+  /* Tela de conclusão */
+  .completed-screen{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 20px;text-align:center;display:none;}
+  .completed-screen h2{font-size:20px;font-weight:700;color:var(--success);margin-bottom:8px;}
+  .completed-screen p{font-size:14px;color:var(--text-secondary);margin-bottom:16px;}
+  .big-number{font-size:56px;font-weight:800;color:var(--accent);line-height:1;}
+  .label{font-size:13px;color:var(--text-secondary);margin-top:4px;margin-bottom:20px;}
+  .countdown-section{border-top:1px solid var(--border);padding-top:16px;}
+  .countdown-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px;}
+  .countdown-time{font-size:22px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<h1 class="sr-only">Equilíbrio — quebra-cabeça diário de equilíbrio</h1>
+<main>
+  <div class="card" id="game-screen">
+    <div class="header-row">
+      <div class="avatar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="3" x2="12" y2="21"/><path d="M5 8h14M5 16h14"/><circle cx="12" cy="12" r="1" fill="white" stroke="none"/></svg>
+      </div>
+      <div class="header-text">
+        <p class="game-name">Equilíbrio</p>
+        <p class="meta-line" id="day-indicator"></p>
+        <p class="meta-line" id="timer"></p>
+      </div>
+      <button class="icon-btn" id="lang-btn" aria-label="trocar idioma" style="width:auto;padding:0 8px;font-size:12px;font-weight:600;">PT</button>
+      <button class="icon-btn" id="rules-btn" aria-label="ver regras do jogo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
+    </div>
+
+    <div class="rules-panel" id="rules-panel"></div>
+
+    <div class="divider">
+      <div class="legend">
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="color:var(--circle)" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg><span id="legend-circle">Círculo</span></span>
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="color:var(--triangle)" aria-hidden="true"><polygon points="12 3 22 21 2 21"/></svg><span id="legend-triangle">Triângulo</span></span>
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="color:var(--square)" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span id="legend-square">Quadrado</span></span>
+      </div>
+      <div id="board-wrap"></div>
+      <div class="controls">
+        <button id="hint-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span id="hint-text">Dica</span></button>
+        <button id="verify-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span id="verify-text">Verificar</span></button>
+        <button id="reset-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span id="reset-text">Reiniciar</span></button>
+      </div>
+      <p id="status"></p>
+    </div>
+  </div>
+
+  <div class="completed-screen" id="completed-screen">
+    <h2 id="completed-title">Puzzle completo!</h2>
+    <p id="completion-time"></p>
+    <div class="big-number" id="streak-number">0</div>
+    <div class="label" id="streak-label">Dias consecutivos 🔥</div>
+    <div class="countdown-section">
+      <div class="countdown-label" id="next-puzzle-label">Próximo puzzle em:</div>
+      <div class="countdown-time" id="countdown"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  // ===== i18n =====
+  var I18N = {
+    pt: {
+      rulesTitleBoard:'O Tabuleiro',
+      rulesBoard1:'Grade <strong>6×6</strong> com círculos, triângulos e quadrados',
+      rulesBoard2:'Algumas células já estão preenchidas (não podem ser alteradas)',
+      rulesBoard3:'Preencha as células vazias com os 3 símbolos',
+      rulesTitleRules:'As Regras',
+      rule1:'<strong>Cada linha</strong> deve ter exatamente 2 círculos, 2 triângulos e 2 quadrados',
+      rule2:'<strong>Cada coluna</strong> deve ter exatamente 2 círculos, 2 triângulos e 2 quadrados',
+      rule3:'Os indicadores ao lado e abaixo da grade ficam <strong>verdes</strong> quando a linha ou coluna estiver correta',
+      rulesTitleWin:'Como Ganhar',
+      win1:'Preencha todas as células',
+      win2:'Garanta que todas as linhas E colunas estejam equilibradas',
+      win3:'Todos os indicadores ficarão verdes — o puzzle estará completo!',
+      legendCircle:'Círculo',
+      legendTriangle:'Triângulo',
+      legendSquare:'Quadrado',
+      hint:'Dica', verify:'Verificar', reset:'Reiniciar',
+      completedTitle:'Puzzle completo!',
+      streakLabel:'Dias consecutivos 🔥',
+      nextPuzzle:'Próximo puzzle em:',
+      timeLabel:'Tempo: ',
+      stillEmpty:'ainda faltam células vazias.',
+      lineSingular:'linha', linePlural:'linhas',
+      colSingular:'coluna', colPlural:'colunas',
+      withError:' com erro.',
+      hintWait:'Próxima dica em alguns segundos...',
+      noEmpty:'Nenhuma célula vazia disponível!',
+      hintRevealed:'💡 Dica revelada! Próxima em 15 segundos.',
+      dayPrefix:'Equilíbrio de ',
+      weekdays:['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
+      ariaPre:'linha ', ariaMid:', coluna ', ariaEmpty:'vazia',
+      langButton:'EN'
+    },
+    en: {
+      rulesTitleBoard:'The Board',
+      rulesBoard1:'<strong>6×6</strong> grid with circles, triangles and squares',
+      rulesBoard2:'Some cells are already filled in (cannot be changed)',
+      rulesBoard3:'Fill the empty cells with the 3 symbols',
+      rulesTitleRules:'The Rules',
+      rule1:'<strong>Each row</strong> must have exactly 2 circles, 2 triangles and 2 squares',
+      rule2:'<strong>Each column</strong> must have exactly 2 circles, 2 triangles and 2 squares',
+      rule3:'The indicators beside and below the grid turn <strong>green</strong> when a row or column is correct',
+      rulesTitleWin:'How to Win',
+      win1:'Fill in all the empty cells',
+      win2:'Make sure every row AND column is balanced',
+      win3:'All indicators will turn green — the puzzle is complete!',
+      legendCircle:'Circle',
+      legendTriangle:'Triangle',
+      legendSquare:'Square',
+      hint:'Hint', verify:'Check', reset:'Reset',
+      completedTitle:'Puzzle complete!',
+      streakLabel:'Day streak 🔥',
+      nextPuzzle:'Next puzzle in:',
+      timeLabel:'Time: ',
+      stillEmpty:'there are still empty cells.',
+      lineSingular:'row', linePlural:'rows',
+      colSingular:'column', colPlural:'columns',
+      withError:' with errors.',
+      hintWait:'Next hint in a few seconds...',
+      noEmpty:'No empty cells available!',
+      hintRevealed:'💡 Hint revealed! Next one in 15 seconds.',
+      dayPrefix:'Equilibrium for ',
+      weekdays:['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+      ariaPre:'row ', ariaMid:', column ', ariaEmpty:'empty',
+      langButton:'PT'
+    }
+  };
+
+  function detectLang(){
+    var saved=localStorage.getItem('equilibrio_lang');
+    if(saved==='pt'||saved==='en')return saved;
+    var nav=(navigator.language||'en').toLowerCase();
+    return nav.indexOf('pt')===0?'pt':'en';
+  }
+  var lang=detectLang();
+  var t=I18N[lang];
+
+  // ===== Fuso Brasília =====
+  function getBrasiliaNow(){
+    var now=new Date();
+    return new Date(now.getTime()+(now.getTimezoneOffset()*60000)-10800000);
+  }
+  function getTodayKey(){
+    var d=getBrasiliaNow();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function getWeekday(){ return getBrasiliaNow().getDay(); }
+  function getSecondsUntilMidnight(){
+    var d=getBrasiliaNow();
+    return (23-d.getHours())*3600+(59-d.getMinutes())*60+(59-d.getSeconds());
+  }
+  function formatTimeRemaining(s){
+    var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+    return (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
+  }
+
+  // ===== localStorage =====
+  function loadPlayerData(){
+    var raw=localStorage.getItem('equilibrio_player');
+    return raw?JSON.parse(raw):{lastPlayedKey:null,streak:0};
+  }
+  function savePlayerData(d){ localStorage.setItem('equilibrio_player',JSON.stringify(d)); }
+  function updateStreak(){
+    var data=loadPlayerData();
+    var todayKey=getTodayKey();
+    var brasilia=getBrasiliaNow();
+    var yesterday=new Date(brasilia.getTime()-86400000);
+    var yKey=yesterday.getFullYear()+'-'+String(yesterday.getMonth()+1).padStart(2,'0')+'-'+String(yesterday.getDate()).padStart(2,'0');
+    if(data.lastPlayedKey===yKey){ data.streak=(data.streak||0)+1; }
+    else if(data.lastPlayedKey!==todayKey){ data.streak=1; }
+    data.lastPlayedKey=todayKey;
+    savePlayerData(data);
+    return data;
+  }
+
+  // ===== RNG =====
+  function makeRng(seed){
+    return function(){
+      seed|=0; seed=(seed+0x6D2B79F5)|0;
+      var t=Math.imul(seed^(seed>>>15),1|seed);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t;
+      return((t^(t>>>14))>>>0)/4294967296;
+    };
+  }
+  function shuffleArr(arr,rng){
+    var a=arr.slice();
+    for(var i=a.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+    return a;
+  }
+
+  // ===== Gerador =====
+  var symbols=['circle','triangle','square'];
+
+  function generateGrid(rng){
+    var grid=[];
+    var colCts=[];
+    for(var i=0;i<6;i++){grid.push([null,null,null,null,null,null]);colCts.push({circle:0,triangle:0,square:0});}
+    function fill(pos){
+      if(pos===36)return true;
+      var r=Math.floor(pos/6),c=pos%6;
+      var rowCt={circle:0,triangle:0,square:0};
+      for(var i=0;i<c;i++)if(grid[r][i])rowCt[grid[r][i]]++;
+      var valid=symbols.filter(function(s){return rowCt[s]<2&&colCts[c][s]<2;});
+      var sh=shuffleArr(valid,rng);
+      for(var i=0;i<sh.length;i++){
+        var s=sh[i]; grid[r][c]=s; colCts[c][s]++;
+        if(fill(pos+1))return true;
+        colCts[c][s]--; grid[r][c]=null;
+      }
+      return false;
+    }
+    return fill(0)?grid:null;
+  }
+
+  function countSolutions(partial,max){
+    var colCts=[];
+    for(var i=0;i<6;i++)colCts.push({circle:0,triangle:0,square:0});
+    for(var r=0;r<6;r++)for(var c=0;c<6;c++)if(partial[r][c])colCts[c][partial[r][c]]++;
+    var count=0;
+    function solve(pos){
+      if(count>=max)return;
+      if(pos===36){count++;return;}
+      var r=Math.floor(pos/6),c=pos%6;
+      if(partial[r][c]!==null){solve(pos+1);return;}
+      var rowCt={circle:0,triangle:0,square:0};
+      for(var i=0;i<6;i++)if(partial[r][i])rowCt[partial[r][i]]++;
+      for(var i=0;i<symbols.length;i++){
+        var s=symbols[i];
+        if(rowCt[s]<2&&colCts[c][s]<2){
+          partial[r][c]=s; colCts[c][s]++;
+          solve(pos+1);
+          colCts[c][s]--; partial[r][c]=null;
+        }
+        if(count>=max)return;
+      }
+    }
+    solve(0);
+    return count;
+  }
+
+  function pickGivens(grid,rng,extra){
+    var allPos=[];
+    for(var r=0;r<6;r++)for(var c=0;c<6;c++)allPos.push([r,c]);
+    var shuffled=shuffleArr(allPos,rng);
+    var givens=[];
+    var partial=[];
+    for(var r=0;r<6;r++)partial.push([null,null,null,null,null,null]);
+    for(var i=0;i<shuffled.length;i++){
+      var pos=shuffled[i];
+      partial[pos[0]][pos[1]]=grid[pos[0]][pos[1]];
+      givens.push(pos);
+      if(countSolutions(partial.map(function(row){return row.slice();}),2)===1)break;
+    }
+    var idx=givens.length;
+    for(var e=0;e<extra&&idx<shuffled.length;e++,idx++){
+      givens.push(shuffled[idx]);
+    }
+    return givens;
+  }
+
+  var difficultyByWeekday={
+    1:{extra:8}, // Segunda - mais fácil
+    2:{extra:6}, // Terça
+    3:{extra:5}, // Quarta
+    4:{extra:4}, // Quinta
+    5:{extra:3}, // Sexta
+    6:{extra:2}, // Sábado
+    0:{extra:1}  // Domingo - mais difícil
+  };
+
+  // ===== Ícones SVG =====
+  var ICONS={
+    circle:'<circle cx="12" cy="12" r="8"/>',
+    triangle:'<polygon points="12 4 21 20 3 20"/>',
+    square:'<rect x="3" y="3" width="18" height="18" rx="2"/>',
+    clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    info:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+  };
+  var colorMap={circle:'var(--circle)',triangle:'var(--triangle)',square:'var(--square)'};
+
+  function iconSvg(name,size,colorVar){
+    var isShape=(name==='circle'||name==='triangle'||name==='square');
+    var attrs=isShape?'fill="currentColor" stroke="none"':'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+    var style=colorVar?'color:'+colorVar+';':'';
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" '+attrs+' style="vertical-align:-2px;'+style+'" aria-hidden="true">'+ICONS[name]+'</svg>';
+  }
+
+  // ===== applyLanguage =====
+  function buildRulesPanel(){
+    var ci='<span class="rule-icon">'+iconSvg('circle',13,'var(--circle)')+'</span>';
+    var tr='<span class="rule-icon">'+iconSvg('triangle',13,'var(--triangle)')+'</span>';
+    var sq='<span class="rule-icon">'+iconSvg('square',13,'var(--square)')+'</span>';
+    var html='<h3>'+t.rulesTitleBoard+'</h3><ul>';
+    html+='<li>'+t.rulesBoard1+'</li>';
+    html+='<li>'+t.rulesBoard2+'</li>';
+    html+='<li>'+t.rulesBoard3+': '+ci+' '+tr+' '+sq+'</li>';
+    html+='</ul><h3>'+t.rulesTitleRules+'</h3><ol>';
+    html+='<li>'+t.rule1+'</li>';
+    html+='<li>'+t.rule2+'</li>';
+    html+='<li>'+t.rule3+'</li>';
+    html+='</ol><h3>'+t.rulesTitleWin+'</h3><ol>';
+    html+='<li>'+t.win1+'</li><li>'+t.win2+'</li><li>'+t.win3+'</li>';
+    html+='</ol>';
+    document.getElementById('rules-panel').innerHTML=html;
+  }
+
+  function applyLanguage(){
+    t=I18N[lang];
+    document.documentElement.lang=(lang==='pt'?'pt-BR':'en');
+    document.getElementById('legend-circle').textContent=t.legendCircle;
+    document.getElementById('legend-triangle').textContent=t.legendTriangle;
+    document.getElementById('legend-square').textContent=t.legendSquare;
+    document.getElementById('verify-text').textContent=t.verify;
+    document.getElementById('reset-text').textContent=t.reset;
+    document.getElementById('completed-title').textContent=t.completedTitle;
+    document.getElementById('streak-label').textContent=t.streakLabel;
+    document.getElementById('next-puzzle-label').textContent=t.nextPuzzle;
+    document.getElementById('lang-btn').textContent=t.langButton;
+    var ht=document.getElementById('hint-text');
+    if(Date.now()>=hintCooldownEnd)ht.textContent=t.hint;
+    buildRulesPanel();
+  }
+
+  // ===== Estado do jogo =====
+  var solution, board, fixedSet, errorRows;
+  var timerInterval=null, elapsedSeconds=0;
+  var countdownInterval=null;
+  var hintCooldownEnd=0, hintCooldownInterval=null;
+  var boardWrap=document.getElementById('board-wrap');
+  var statusEl=document.getElementById('status');
+  var dayEl=document.getElementById('day-indicator');
+  var timerEl=document.getElementById('timer');
+  var gameScreen=document.getElementById('game-screen');
+  var completedScreen=document.getElementById('completed-screen');
+
+  // ===== Timer =====
+  function getTimerKey(){ return 'equilibrio_timer_start_'+getTodayKey(); }
+  function getTimerStart(){
+    var saved=localStorage.getItem(getTimerKey());
+    if(saved)return parseInt(saved,10);
+    var now=Date.now();
+    localStorage.setItem(getTimerKey(),String(now));
+    return now;
+  }
+  function formatTime(s){var m=Math.floor(s/60),sec=s%60;return(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;}
+  function updateTimerDisplay(){ timerEl.innerHTML=iconSvg('clock',13)+' '+formatTime(elapsedSeconds); }
+  function startTimer(){
+    if(timerInterval)clearInterval(timerInterval);
+    var start=getTimerStart();
+    elapsedSeconds=Math.floor((Date.now()-start)/1000);
+    updateTimerDisplay();
+    timerInterval=setInterval(function(){
+      elapsedSeconds=Math.floor((Date.now()-start)/1000);
+      updateTimerDisplay();
+    },1000);
+  }
+  function stopTimer(){ if(timerInterval){clearInterval(timerInterval);timerInterval=null;} }
+
+  // ===== Render =====
+  function isRowOk(r){
+    var ct={circle:0,triangle:0,square:0};
+    for(var c=0;c<6;c++){if(!board[r][c])return false;ct[board[r][c]]++;}
+    return ct.circle===2&&ct.triangle===2&&ct.square===2;
+  }
+  function isColOk(c){
+    var ct={circle:0,triangle:0,square:0};
+    for(var r=0;r<6;r++){if(!board[r][c])return false;ct[board[r][c]]++;}
+    return ct.circle===2&&ct.triangle===2&&ct.square===2;
+  }
+
+  function updateIndicators(){
+    for(var r=0;r<6;r++){
+      var ind=document.getElementById('row-ind-'+r);
+      if(ind){var ok=isRowOk(r);ind.className='row-ind'+(ok?' ok':'');ind.textContent=ok?'✓':'·';}
+    }
+    for(var c=0;c<6;c++){
+      var ind=document.getElementById('col-ind-'+c);
+      if(ind){var ok=isColOk(c);ind.className='col-ind'+(ok?' ok':'');ind.textContent=ok?'✓':'·';}
+    }
+  }
+
+  function render(){
+    boardWrap.innerHTML='';
+    for(var r=0;r<6;r++){
+      var rowErr=errorRows&&errorRows.has(r);
+      for(var c=0;c<6;c++){
+        (function(r,c){
+          var key=r+'_'+c;
+          var val=board[r][c];
+          var isFixed=fixedSet.has(key);
+          var cell=document.createElement('div');
+          cell.className='game-cell'+(isFixed?' fixed':'')+(rowErr?' error-row':'');
+          cell.tabIndex=0;
+          cell.setAttribute('role','button');
+          cell.setAttribute('aria-label',t.ariaPre+(r+1)+t.ariaMid+(c+1)+': '+(val?t['legend'+val.charAt(0).toUpperCase()+val.slice(1)]:t.ariaEmpty));
+          if(val) cell.innerHTML=iconSvg(val,20,colorMap[val]);
+          if(!isFixed){
+            cell.addEventListener('click',function(){handleClick(r,c);});
+            cell.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();handleClick(r,c);}});
+          }
+          boardWrap.appendChild(cell);
+        })(r,c);
+      }
+      // Indicador de linha
+      var ri=document.createElement('div');
+      ri.id='row-ind-'+r; ri.className='row-ind'; ri.textContent='·';
+      boardWrap.appendChild(ri);
+    }
+    // Indicadores de coluna
+    for(var c=0;c<6;c++){
+      var ci=document.createElement('div');
+      ci.id='col-ind-'+c; ci.className='col-ind'; ci.textContent='·';
+      boardWrap.appendChild(ci);
+    }
+    // Canto vazio
+    var corner=document.createElement('div');
+    corner.className='corner';
+    boardWrap.appendChild(corner);
+    updateIndicators();
+  }
+
+  function handleClick(r,c){
+    if(fixedSet.has(r+'_'+c))return;
+    var cur=board[r][c];
+    var next=cur===null?'circle':cur==='circle'?'triangle':cur==='triangle'?'square':null;
+    board[r][c]=next;
+    errorRows=new Set();
+    statusEl.textContent='';
+    render();
+  }
+
+  // ===== Verificar =====
+  function verify(){
+    var newErrorRows=new Set();
+    var hasEmpty=false;
+    for(var r=0;r<6;r++){
+      var rowFull=true, rowCt={circle:0,triangle:0,square:0};
+      for(var c=0;c<6;c++){if(!board[r][c])rowFull=false;else rowCt[board[r][c]]++;}
+      if(!rowFull)hasEmpty=true;
+      else if(rowCt.circle!==2||rowCt.triangle!==2||rowCt.square!==2)newErrorRows.add(r);
+    }
+    // Verifica colunas — se uma coluna está errada, marca as linhas envolvidas
+    for(var c=0;c<6;c++){
+      var colFull=true, colCt={circle:0,triangle:0,square:0};
+      for(var r=0;r<6;r++){if(!board[r][c])colFull=false;else colCt[board[r][c]]++;}
+      if(colFull&&(colCt.circle!==2||colCt.triangle!==2||colCt.square!==2)){
+        for(var r=0;r<6;r++)newErrorRows.add(r);
+      }
+    }
+    errorRows=newErrorRows;
+    render();
+    if(hasEmpty){
+      statusEl.textContent=t.stillEmpty;
+      statusEl.style.color='var(--text-secondary)';
+    } else if(newErrorRows.size>0){
+      statusEl.textContent=newErrorRows.size+' '+(newErrorRows.size===1?t.lineSingular:t.linePlural)+t.withError;
+      statusEl.style.color='var(--danger)';
+    } else {
+      stopTimer();
+      var playerData=updateStreak();
+      var todayKey=getTodayKey();
+      localStorage.setItem('equilibrio_game_'+todayKey,JSON.stringify({completed:true,time:elapsedSeconds}));
+      showCompletedScreen(playerData);
+    }
+  }
+
+  function resetBoard(){
+    for(var r=0;r<6;r++)for(var c=0;c<6;c++)if(!fixedSet.has(r+'_'+c))board[r][c]=null;
+    errorRows=new Set();
+    statusEl.textContent='';
+    render();
+  }
+
+  // ===== Tela de conclusão =====
+  function showCompletedScreen(playerData){
+    gameScreen.style.display='none';
+    completedScreen.style.display='block';
+    document.getElementById('completion-time').textContent=t.timeLabel+formatTime(elapsedSeconds);
+    document.getElementById('streak-number').textContent=playerData.streak;
+    if(countdownInterval)clearInterval(countdownInterval);
+    function tick(){
+      var secs=getSecondsUntilMidnight();
+      document.getElementById('countdown').textContent=formatTimeRemaining(secs);
+    }
+    tick();
+    countdownInterval=setInterval(tick,1000);
+  }
+
+  function checkAndShowCompletedIfNeeded(){
+    var todayKey=getTodayKey();
+    var gameState=JSON.parse(localStorage.getItem('equilibrio_game_'+todayKey));
+    if(gameState&&gameState.completed){
+      var playerData=loadPlayerData();
+      showCompletedScreen(playerData);
+      return true;
+    }
+    return false;
+  }
+
+  // ===== Dicas =====
+  function getRandomEmpty(){
+    var empty=[];
+    for(var r=0;r<6;r++)for(var c=0;c<6;c++)if(!fixedSet.has(r+'_'+c)&&board[r][c]===null)empty.push([r,c]);
+    if(!empty.length)return null;
+    return empty[Math.floor(Math.random()*empty.length)];
+  }
+  function useHint(){
+    var now=Date.now();
+    if(now<hintCooldownEnd){statusEl.textContent=t.hintWait;statusEl.style.color='var(--text-secondary)';return;}
+    var cell=getRandomEmpty();
+    if(!cell){statusEl.textContent=t.noEmpty;statusEl.style.color='var(--text-secondary)';return;}
+    board[cell[0]][cell[1]]=solution[cell[0]][cell[1]];
+    errorRows=new Set();
+    statusEl.textContent=t.hintRevealed;
+    statusEl.style.color='var(--success)';
+    hintCooldownEnd=now+15000;
+    render();
+    updateHintButton();
+  }
+  function updateHintButton(){
+    var now=Date.now();
+    var btn=document.getElementById('hint-btn');
+    var ht=document.getElementById('hint-text');
+    if(now<hintCooldownEnd){
+      btn.disabled=true;
+      ht.textContent=Math.ceil((hintCooldownEnd-now)/1000)+'s';
+      if(hintCooldownInterval)clearInterval(hintCooldownInterval);
+      hintCooldownInterval=setInterval(function(){
+        var n=Date.now();
+        if(n>=hintCooldownEnd){btn.disabled=false;ht.textContent=t.hint;clearInterval(hintCooldownInterval);}
+        else ht.textContent=Math.ceil((hintCooldownEnd-n)/1000)+'s';
+      },100);
+    } else {
+      btn.disabled=false;
+      ht.textContent=t.hint;
+    }
+  }
+
+  // ===== Carregamento =====
+  function loadPuzzle(){
+    var brasilia=getBrasiliaNow();
+    var dayNumber=Math.floor(brasilia.getTime()/86400000);
+    var weekday=brasilia.getDay();
+    var config=difficultyByWeekday[weekday];
+    var seed=((dayNumber*2654435761)^0x9E3779B9)>>>0;
+    var rng=makeRng(seed);
+    var grid=generateGrid(rng);
+    var rng2=makeRng(seed+1);
+    var givensList=pickGivens(grid,rng2,config.extra);
+    solution=grid;
+    fixedSet=new Set(givensList.map(function(g){return g[0]+'_'+g[1];}));
+    board=grid.map(function(row,r){return row.map(function(val,c){return fixedSet.has(r+'_'+c)?val:null;});});
+    errorRows=new Set();
+    statusEl.textContent='';
+    dayEl.textContent=t.dayPrefix+t.weekdays[weekday];
+    hintCooldownEnd=0;
+    updateHintButton();
+    startTimer();
+    render();
+  }
+
+  // ===== Event listeners =====
+  document.getElementById('verify-btn').addEventListener('click',verify);
+  document.getElementById('reset-btn').addEventListener('click',resetBoard);
+  document.getElementById('hint-btn').addEventListener('click',useHint);
+  document.getElementById('rules-btn').addEventListener('click',function(){
+    var p=document.getElementById('rules-panel');
+    p.style.display=p.style.display==='block'?'none':'block';
+  });
+  document.getElementById('lang-btn').addEventListener('click',function(){
+    lang=(lang==='pt')?'en':'pt';
+    localStorage.setItem('equilibrio_lang',lang);
+    applyLanguage();
+    var weekday=getWeekday();
+    dayEl.textContent=t.dayPrefix+t.weekdays[weekday];
+    if(completedScreen.style.display==='block'){
+      var gs=JSON.parse(localStorage.getItem('equilibrio_game_'+getTodayKey()));
+      if(gs)document.getElementById('completion-time').textContent=t.timeLabel+formatTime(gs.time);
+    }
+  });
+
+  applyLanguage();
+  if(!checkAndShowCompletedIfNeeded()){ loadPuzzle(); }
+})();
+</script>
+</body>
+</html>

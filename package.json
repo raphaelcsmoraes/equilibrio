@@ -1,0 +1,23 @@
+{
+  "name": "equilibrio",
+  "version": "1.0.0",
+  "description": "Equilíbrio — quebra-cabeça diário de equilíbrio bidimensional",
+  "main": "index.html",
+  "author": "Raphael Moraes",
+  "license": "MIT",
+  "homepage": "https://jogo-equilibrio.netlify.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raphaelcsmoraes/equilibrio"
+  },
+  "keywords": [
+    "puzzle",
+    "daily",
+    "game",
+    "logic",
+    "grid",
+    "balance",
+    "vanilla-js",
+    "no-dependencies"
+  ]
+}
